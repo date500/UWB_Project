@@ -3,7 +3,6 @@ from scipy.optimize import fsolve
 import pandas as pd 
 
 def calculate_true_angles(d1, d2, baseline):
-    # 분모 0 방지 및 안전장치
     if d1 == 0 or d2 == 0 or baseline == 0:
         return np.nan, np.nan
 
@@ -20,10 +19,10 @@ def solve_general_triangulation():
     # ---------------------------------------------------------
     # 1. 설정 및 데이터 로드
     # ---------------------------------------------------------
-    file_path = '/home/user/jin/UWB_Project/srcs/Parameter/value/Case2.csv'
+    file_path = '/home/user/jin/UWB_Project/srcs/Parameter/value/Case5.csv'
     
     # [경로 확인] 본인 윈도우 ID 확인 필수
-    output_excel_path = '/mnt/c/Users/user/Desktop/새 폴더/Result_Case2.xlsx'
+    output_excel_path = '/mnt/c/Users/user/Desktop/새 폴더/Result_Case5.xlsx'
     
     try:
         data = np.loadtxt(file_path, delimiter=',')
@@ -34,8 +33,8 @@ def solve_general_triangulation():
 
     # Constants
     a1, a2, a3 = 0.970188, -0.177800, 0.064273 
-    BASELINE = 3
-    true_d1, true_d2 = 2.5, 2.1
+    BASELINE = 2.3
+    true_d1, true_d2 = 1.9, 2.25
     
     true_t1_rad, true_t2_rad = calculate_true_angles(true_d1, true_d2, BASELINE)
     true_t1_deg = np.degrees(true_t1_rad)
@@ -56,9 +55,9 @@ def solve_general_triangulation():
     # ---------------------------------------------------------
     # 2. 데이터 처리
     # ---------------------------------------------------------
-    print("="*120)
-    print(f"{'Idx':<4} | {'d1':<9} {'d2':<9} | {'t1':<9} {'t2':<9} || {'Err_d1':<9} {'Err_d2':<9} | {'Err_t1':<9} {'Err_t2':<9}")
-    print("="*120)
+    print("="*130)
+    print(f"{'Idx':<4} | {'d1':<9} {'d2':<9} | {'t1':<9} {'t2':<9} || {'Err_d1(%)':<11} {'Err_d2(%)':<11} | {'Err_t1(%)':<11} {'Err_t2(%)':<11}")
+    print("="*130)
 
     excel_data = [] 
     last_sol = None
@@ -77,16 +76,13 @@ def solve_general_triangulation():
         c_t1_deg = np.degrees(c_t1_rad)
         c_t2_deg = np.degrees(c_t2_rad)
         
-        # [수정됨] 절대값(abs) 제거 -> 단순 오차 (측정값 - 참값)
-        e_d1 = c_d1 - true_d1
-        e_d2 = c_d2 - true_d2
-        e_t1 = c_t1_deg - true_t1_deg
-        e_t2 = c_t2_deg - true_t2_deg
+        e_d1 = (abs(c_d1 - true_d1) / true_d1) * 100
+        e_d2 = (abs(c_d2 - true_d2) / true_d2) * 100
+        e_t1 = (abs(c_t1_deg - true_t1_deg) / true_t1_deg) * 100
+        e_t2 = (abs(c_t2_deg - true_t2_deg) / true_t2_deg) * 100
         
-        # 화면 출력 (Console)
-        print(f"{i:<4} | {c_d1:<9.5f} {c_d2:<9.5f} | {c_t1_deg:<9.4f} {c_t2_deg:<9.4f} || {e_d1:<9.5f} {e_d2:<9.5f} | {e_t1:<9.4f} {e_t2:<9.4f}")
+        print(f"{i:<4} | {c_d1:<9.5f} {c_d2:<9.5f} | {c_t1_deg:<9.4f} {c_t2_deg:<9.4f} || {e_d1:<11.4f} {e_d2:<11.4f} | {e_t1:<11.4f} {e_t2:<11.4f}")
 
-        # 엑셀 데이터 저장
         excel_data.append({
             'IDX': i,
             'M1': m1_in,
@@ -95,16 +91,13 @@ def solve_general_triangulation():
             'd2': c_d2,
             't1(deg)': c_t1_deg,
             't2(deg)': c_t2_deg,
-            'Err_d1': e_d1,
-            'Err_d2': e_d2,
-            'Err_t1': e_t1,
-            'Err_t2': e_t2
+            'Err_d1(%)': e_d1,
+            'Err_d2(%)': e_d2,
+            'Err_t1(%)': e_t1,
+            'Err_t2(%)': e_t2
         })
         last_sol = sol
 
-    # ---------------------------------------------------------
-    # 3. 엑셀 저장
-    # ---------------------------------------------------------
     df = pd.DataFrame(excel_data)
     
     avg_row = df.mean(numeric_only=True).astype(object)

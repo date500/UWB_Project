@@ -1,100 +1,123 @@
 import numpy as np
-from scipy.optimize import fsolve # 방정식을 풀기 위한 도구
+from scipy.optimize import fsolve
+import csv  # 파이썬 기본 내장 (설치 불필요)
+
+def calculate_true_angles(d1, d2, baseline):
+    sin_t1 = (d1**2 + baseline**2 - d2**2) / (2 * d1 * baseline)
+    sin_t2 = (d2**2 + baseline**2 - d1**2) / (2 * d2 * baseline)
+    
+    if abs(sin_t1) > 1 or abs(sin_t2) > 1:
+        raise ValueError("삼각형 성립 조건 위배.")
+
+    return np.arcsin(sin_t1), np.arcsin(sin_t2)
 
 def solve_general_triangulation():
-    # ---------------------------------------------------------------------
-    # 1. 고정 계수 (Calibration Coefficients)
-    # ---------------------------------------------------------------------
-    # [사진 속 수식] M = d*a1 + theta*a2 + a3
-    a1 = 0.970188
-    a2 = -0.177800
-    a3 = 0.064273 
+    # ---------------------------------------------------------
+    # 1. 설정 및 데이터 로드
+    # ---------------------------------------------------------
+    file_path = '/home/user/jin/UWB_Project/srcs/Parameter/value/Case3.csv'
+    # 저장할 경로 (.csv로 변경)
+    output_csv_path = '/home/user/jin/UWB_Project/srcs/Parameter/value/Result_Case3.csv'
+    
+    try:
+        data = np.loadtxt(file_path, delimiter=',')
+        print(f"파일 로드 완료: {file_path} (데이터 {len(data)}개)")
+    except Exception as e:
+        print(f"파일 로드 실패: {e}")
+        return
 
-    # ---------------------------------------------------------------------
-    # 2. 데이터 입력
-    # ---------------------------------------------------------------------
-    print("=== [데이터 입력] ===")
-    
-    # 측정값 (Measured Values)
-    M1 = 1.78025  
-    M2 = 1.91219 
-    
-    # 센서 간 거리 (Baseline)
-    # 사진의 식: 1.75sin(t1) + 1.95sin(t2) = 2  ---> 즉, 전체 폭은 2m
+    # 파라미터
+    a1, a2, a3 = 0.970188, -0.177800, 0.064273 
     BASELINE = 2.0 
-
-    # [검증용 참값]
-    true_d1 = 1.75
-    true_theta1_deg = 27.756459
-    true_d2 = 1.95
-    true_theta2_deg = 37.422828
-
-    print(f" 측정값 1 (M1) : {M1}")
-    print(f" 측정값 2 (M2) : {M2}")
-    print(f" 센서 간격 (2h) : {BASELINE} m")
-    print("-" * 40)
-
-    # ---------------------------------------------------------------------
-    # 3. 알고리즘: 연립 방정식 정의
-    # ---------------------------------------------------------------------
-    # 우리가 구해야 할 미지수: d1, theta1, d2, theta2 (총 4개)
-    # 입력 변수 x = [d1, theta1, d2, theta2]
+    true_d1, true_d2 = 1.75, 1.95
     
-    def equations(vars):
-        d1, t1, d2, t2 = vars # t1, t2는 라디안 단위
-        
-        # 식 1: 센서 1 모델 (M1 = d1*a1 + t1*a2 + a3)
-        eq1 = (d1 * a1) + (t1 * a2) + a3 - M1
-        
-        # 식 2: 센서 2 모델 (M2 = d2*a1 + t2*a2 + a3)
-        eq2 = (d2 * a1) + (t2 * a2) + a3 - M2
-        
-        # 식 3: 기하학적 조건 X축 (d1*cos(t1) = d2*cos(t2))
+    true_t1_rad, true_t2_rad = calculate_true_angles(true_d1, true_d2, BASELINE)
+    true_t1_deg = np.degrees(true_t1_rad)
+    true_t2_deg = np.degrees(true_t2_rad)
+
+    print(f"참값 기준: d1={true_d1}, d2={true_d2}")
+
+    def equations(vars, m1, m2):
+        d1, t1, d2, t2 = vars
+        eq1 = (d1 * a1) + (t1 * a2) + a3 - m1
+        eq2 = (d2 * a1) + (t2 * a2) + a3 - m2
         eq3 = d1 * np.cos(t1) - d2 * np.cos(t2)
-        
-        # 식 4: 기하학적 조건 Y축 (d1*sin(t1) + d2*sin(t2) = 2)
         eq4 = d1 * np.sin(t1) + d2 * np.sin(t2) - BASELINE
-        
         return [eq1, eq2, eq3, eq4]
 
-    # ---------------------------------------------------------------------
-    # 4. 방정식 풀이 (Solver 실행)
-    # ---------------------------------------------------------------------
-    # 초기 추정값 (Initial Guess) - 해를 잘 찾기 위해 대략적인 값을 넣어줍니다.
-    # 거리값은 M값과 비슷할 것이고, 각도는 0.5 라디안 정도로 가정
-    initial_guess = [1.8, 0.5, 1.9, 0.6] 
+    # ---------------------------------------------------------
+    # 2. 데이터 처리
+    # ---------------------------------------------------------
+    print("="*120)
+    print(f"{'순번':<4} | {'추정_d1':<9} {'추정_d2':<9} | {'추정_t1':<9} {'추정_t2':<9} || {'오차_d1':<9} {'오차_d2':<9} | {'오차_t1':<9} {'오차_t2':<9}")
+    print("="*120)
+
+    # CSV 헤더 정의
+    csv_header = ['순번', '입력_M1', '입력_M2', '추정_d1', '추정_d2', '추정_t1', '추정_t2', '오차_d1', '오차_d2', '오차_t1', '오차_t2']
+    csv_rows = [] # 데이터를 모을 리스트
     
-    # fsolve로 4개의 미지수를 한 번에 계산
-    solution = fsolve(equations, initial_guess)
+    last_sol = None
+
+    for i, row in enumerate(data):
+        m1_in, m2_in = row[0], row[1]
+        
+        if last_sol is None:
+            guess = [m1_in, 0.5, m2_in, 0.5] 
+        else:
+            guess = last_sol 
+        
+        sol = fsolve(equations, guess, args=(m1_in, m2_in))
+        c_d1, c_t1_rad, c_d2, c_t2_rad = sol
+        
+        c_t1_deg = np.degrees(c_t1_rad)
+        c_t2_deg = np.degrees(c_t2_rad)
+        
+        e_d1 = abs(c_d1 - true_d1)
+        e_d2 = abs(c_d2 - true_d2)
+        e_t1 = abs(c_t1_deg - true_t1_deg)
+        e_t2 = abs(c_t2_deg - true_t2_deg)
+        
+        # 화면 출력
+        print(f"{i:<4} | {c_d1:<9.5f} {c_d2:<9.5f} | {c_t1_deg:<9.4f} {c_t2_deg:<9.4f} || {e_d1:<9.5f} {e_d2:<9.5f} | {e_t1:<9.4f} {e_t2:<9.4f}")
+
+        # 리스트에 저장 (모든 수치는 소수점 6자리까지 저장 권장)
+        csv_rows.append([
+            i, m1_in, m2_in, 
+            c_d1, c_d2, c_t1_deg, c_t2_deg, 
+            e_d1, e_d2, e_t1, e_t2
+        ])
+
+        last_sol = sol
+
+    # ---------------------------------------------------------
+    # 3. 평균 계산 및 CSV 저장
+    # ---------------------------------------------------------
+    # numpy를 이용해 열별 평균 계산 (순번 제외)
+    data_matrix = np.array([row[1:] for row in csv_rows]) # 0번째 열(순번) 뺌
+    averages = np.mean(data_matrix, axis=0)
     
-    calc_d1, calc_t1_rad, calc_d2, calc_t2_rad = solution
-    
-    # 라디안 -> 도(degree) 변환
-    calc_t1_deg = np.degrees(calc_t1_rad)
-    calc_t2_deg = np.degrees(calc_t2_rad)
+    # 평균 행 생성 ('순번' 자리에 '평균' 텍스트 넣기)
+    avg_row = ['평균'] + averages.tolist()
 
-    # ---------------------------------------------------------------------
-    # 5. 결과 출력 및 오차 검증
-    # ---------------------------------------------------------------------
-    print("\n=== [분석 결과 (사진 알고리즘 적용)] ===")
-    print(f" [센서 1] 추정 거리: {calc_d1:.5f} m | 추정 각도: {calc_t1_deg:.5f} 도 ({calc_t1_rad:.5f} rad)")
-    print(f" [센서 2] 추정 거리: {calc_d2:.5f} m | 추정 각도: {calc_t2_deg:.5f} 도 ({calc_t2_rad:.5f} rad)")
+    # CSV 파일 쓰기
+    try:
+        # utf-8-sig는 엑셀에서 한글 깨짐 방지용 인코딩입니다.
+        with open(output_csv_path, 'w', newline='', encoding='utf-8-sig') as f:
+            writer = csv.writer(f)
+            writer.writerow(csv_header)   # 헤더 쓰기
+            writer.writerows(csv_rows)    # 데이터 쓰기
+            writer.writerow(avg_row)      # 평균 쓰기
+            
+        print("\n" + "="*60)
+        print(f"✅ CSV 파일 저장 성공! 경로: {output_csv_path}")
+        print("="*60)
+    except Exception as e:
+        print(f"\n❌ CSV 저장 실패: {e}")
 
-    print("\n=== [오차 검증] ===")
-    # 오차 1 (센서 1)
-    err_d1 = abs(calc_d1 - true_d1)
-    err_t1 = abs(calc_t1_deg - true_theta1_deg)
-    print(f" [Set 1] 거리오차: {err_d1:.6f} m | 각도오차: {err_t1:.6f} 도")
-
-    # 오차 2 (센서 2)
-    err_d2 = abs(calc_d2 - true_d2)
-    err_t2 = abs(calc_t2_deg - true_theta2_deg)
-    print(f" [Set 2] 거리오차: {err_d2:.6f} m | 각도오차: {err_t2:.6f} 도")
-
-    # 정확도 (거리 기준)
-    print("-" * 40)
-    print(f" * Set 1 거리 정확도: {100 - (err_d1/true_d1*100):.4f}%")
-    print(f" * Set 2 거리 정확도: {100 - (err_d2/true_d2*100):.4f}%")
+    # 화면에 평균 요약 출력
+    print("\n=== [최종 평균] ===")
+    print(f" 평균 d1: {averages[2]:.5f} m") # index 2가 d1 (M1, M2 다음)
+    print(f" 평균 d2: {averages[3]:.5f} m")
 
 if __name__ == "__main__":
     solve_general_triangulation()

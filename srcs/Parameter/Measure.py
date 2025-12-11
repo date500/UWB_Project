@@ -19,10 +19,10 @@ def solve_general_triangulation():
     # ---------------------------------------------------------
     # 1. 설정 및 데이터 로드
     # ---------------------------------------------------------
-    file_path = '/home/user/jin/UWB_Project/srcs/Parameter/value/Case5.csv'
+    file_path = '/home/user/jin/UWB_Project/srcs/Parameter/value/Case6.csv'
     
     # [경로 확인] 본인 윈도우 ID 확인 필수
-    output_excel_path = '/mnt/c/Users/user/Desktop/새 폴더/Result_Case5.xlsx'
+    output_excel_path = '/mnt/c/Users/user/Desktop/새 폴더/Result_Case6.xlsx'
     
     try:
         data = np.loadtxt(file_path, delimiter=',')
@@ -33,8 +33,8 @@ def solve_general_triangulation():
 
     # Constants
     a1, a2, a3 = 0.970188, -0.177800, 0.064273 
-    BASELINE = 2.3
-    true_d1, true_d2 = 1.9, 2.25
+    BASELINE = 1.5
+    true_d1, true_d2 = 1.2, 1.5
     
     true_t1_rad, true_t2_rad = calculate_true_angles(true_d1, true_d2, BASELINE)
     true_t1_deg = np.degrees(true_t1_rad)

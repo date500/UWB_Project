@@ -4,11 +4,11 @@ import matplotlib.patches as patches
 
 def draw_sensor_geometry():
     # 1. 설정값 정의
-    d1 = 1.75
-    d2 = 1.95
-    theta1_deg = 27.76
-    theta2_deg = 37.42
-    baseline = 2.0
+    d1 = 1.9
+    d2 = 2.25
+    theta1_deg = 26.04
+    theta2_deg = 40.65
+    baseline = 2.3
     
     # 각도를 라디안으로 변환
     theta1_rad = np.radians(theta1_deg)
@@ -65,7 +65,7 @@ def draw_sensor_geometry():
     # 거리 텍스트
     ax.text(target_pos[0]/2, (sensor1_pos[1] + target_pos[1])/2 + 0.1, f'd1 = {d1}m', color='blue', fontsize=10)
     ax.text(target_pos[0]/2, (sensor2_pos[1] + target_pos[1])/2 - 0.1, f'd2 = {d2}m', color='green', fontsize=10)
-    ax.text(-0.15, baseline/2, '2m', ha='right', va='center', fontsize=12)
+    ax.text(-0.15, baseline/2, f'{baseline}m', ha='right', va='center', fontsize=12)
 
     # 각도 호(Arc) 그리기
     # Sensor 1 Angle (아래쪽 방향)
@@ -82,8 +82,8 @@ def draw_sensor_geometry():
     ax.set_title("Dual UWB Sensor Geometry", fontsize=14)
     ax.set_xlabel("Horizontal Distance (m)")
     ax.set_ylabel("Vertical Distance (m)")
-    ax.set_xlim(-0.5, 2.5)
-    ax.set_ylim(-0.5, 2.5)
+    ax.set_xlim(-0.5, 3.0)
+    ax.set_ylim(-0.5, 3.0)
     
     plt.tight_layout()
     plt.show()
